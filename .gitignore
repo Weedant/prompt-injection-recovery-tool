@@ -1,0 +1,47 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+
+# ── Environment / secrets ──────────────────────────────────────────────────────
+.env
+
+# ── Generated model artifacts (large binary files) ────────────────────────────
+models/step2/*.joblib
+models/step2/threshold.txt
+models/step3/
+
+# ── Generated data files (large) ──────────────────────────────────────────────
+data/processed/filtered_embeddings.npy
+data/processed/filtered_ids.npy
+data/processed/filtered_data.csv
+data/processed/filtered_sample.csv
+data/processed/embedder_meta.json
+
+# ── ReNeLLM dataset (350MB — download separately) ─────────────────────────────
+data/renellm/
+renellm_jailbreak.json
+
+# ── IDE / OS ───────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── Pytest / coverage ─────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Notebooks (optional — remove if you want to track them) ───────────────────
+notebooks/
