@@ -92,9 +92,13 @@ def evaluate():
     
     # Target validation
     if recall > 0.80:
-        print("\n✅ Target Met: Recall > 80%")
+        print("\n[PASS] Target Met: Recall > 80%")
     else:
-        print(f"\n❌ Target Missed: Recall {recall:.2%} < 80%")
+        print(f"\n[FAIL] Target Missed: Recall {recall:.2%} < 80%")
+        print("\nNOTE: ReNeLLM dataset has all label=1 (125,494 successful jailbreaks).")
+        print("      Responses are actual harmful Claude 2 completions, not refusals.")
+        print("      Low recall means the regex detectors don't match the response style.")
+        print("      Consider: (1) expanding regex patterns, or (2) using an LLM-as-judge approach.")
 
 if __name__ == "__main__":
     evaluate()
