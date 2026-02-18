@@ -34,6 +34,11 @@ import joblib
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
+# Import HarmfulIntentDetector — catches malware/exploit/PII requests
+# regardless of what the ML model scores.
+from pipeline.step3_sandbox.behavior_detectors import HarmfulIntentDetector
+_harmful_intent = HarmfulIntentDetector()
+
 ROOT = Path(__file__).resolve().parents[2]
 
 # Model artifacts — now stored under models/step2/
@@ -147,6 +152,19 @@ def is_suspicious(text: str) -> dict:
     strong_rule  = any(r in _STRONG_RULES for r in rule_hits)
     medium_rule  = any(r in _MEDIUM_RULES for r in rule_hits)
     has_legit    = any(ind in text.lower() for ind in _LEGITIMATE_INDICATORS)
+
+    # Hard override: harmful intent (malware, exploits, PII theft, etc.)
+    harmful = _harmful_intent.detect(text, "")
+    if harmful["compromised"]:
+        return {
+            "suspicious":         True,
+            "score":              0.98,
+            "model_prob":         0.98,
+            "threshold":          float(threshold),
+            "rule_hits":          harmful["hits"],
+            "reason":             "harmful_intent:" + ",".join(harmful["hits"]),
+            "legitimate_context": False,
+        }
 
     emb  = sbert.encode([text])
     prob = float(clf.predict_proba(emb)[0, 1])
