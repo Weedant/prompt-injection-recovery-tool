@@ -35,17 +35,17 @@ def main() -> None:
     args = parser.parse_args()
 
     if not args.skip_data:
-        print("\n── Step 2a: Preparing data ─────────────────────────────────────")
+        print("\n-- Step 2a: Preparing data --")
         run([sys.executable, "-m", "pipeline.step2_prefilter.data_prep"])
 
     if not args.skip_embed:
-        print("\n── Step 2b: Building SBERT embeddings ──────────────────────────")
+        print("\n-- Step 2b: Building SBERT embeddings --")
         run([sys.executable, "-m", "pipeline.step2_prefilter.embedder", "--build", "--batch", "64"])
 
-    print("\n── Step 2c: Training classifier ────────────────────────────────")
+    print("\n-- Step 2c: Training classifier --")
     run([sys.executable, "-m", "pipeline.step2_prefilter.train"])
 
-    print("\n✅  Step 2 complete. Model saved to models/step2/")
+    print("\nStep 2 complete. Model saved to models/step2/")
 
 
 if __name__ == "__main__":
