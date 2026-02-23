@@ -169,9 +169,9 @@ streamlit run app/demo.py
 
 ### 8. Start the API Firewall (FastAPI)
 ```bash
-python -m uvicorn app.api:app --host 0.0.0.0 --port 8000
+python -m uvicorn app.api:app --host 127.0.0.1 --port 8000
 ```
-Then visit [http://localhost:8000/docs](http://localhost:8000/docs) to access the interactive Swagger UI and test the API.
+Then visit [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) to access the interactive Swagger UI and test the API.
 
 ## Tech Stack
 
