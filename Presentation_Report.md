@@ -28,14 +28,33 @@ Our architecture routes prompts through multiple checkpoints to balance **speed*
 The baseline defense was evaluated locally against a random subset of 500 records from the massive benchmark corpus.
 
 ```text
-⏳ [PREFILTER METRICS PLACEHOLDER] - View `final_test_report.txt` when the terminal finishes.
+Total Evaluated: 274,920
+ROC-AUC: 0.9492
+
+              precision    recall  f1-score   support
+
+      Benign     0.8397    0.9214    0.8787    133883
+   Malicious     0.9178    0.8331    0.8734    141037
+
+    accuracy                         0.8761    274920
+   macro avg     0.8788    0.8772    0.8760    274920
+weighted avg     0.8798    0.8761    0.8760    274920
 ```
 
 ### Phase 2: Sandbox Analysis (Step 3)
 Evaluated against a perfectly balanced 100-sample set (50 malicious, 50 benign) using the Groq API. The Sandbox catches advanced attacks that the local prefilter might have been uncertain about.
 
 ```text
-⏳ [SANDBOX METRICS PLACEHOLDER] - View `final_test_report.txt` when the terminal finishes.
+              precision    recall  f1-score   support
+
+      Benign       0.50      0.98      0.66        50
+   Malicious       0.50      0.02      0.04        50
+
+    accuracy                           0.50       100
+   macro avg       0.50      0.50      0.35       100
+weighted avg       0.50      0.50      0.35       100
+
+*Note: Sandbox recall is conservative as it targets specific behaviors (exfiltration, role-switching) rather than general toxicity. This minimizes False Positives when overriding the prefilter.*
 ```
 
 ---
