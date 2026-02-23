@@ -60,17 +60,28 @@ MODEL_PATH      = _resolve(MODEL_PATH,      _OLD_MODEL_PATH)
 THRESHOLD_PATH  = _resolve(THRESHOLD_PATH,  _OLD_THRESHOLD_PATH)
 MODEL_META_PATH = _resolve(MODEL_META_PATH, _OLD_META_PATH)
 
-for p in [MODEL_PATH, THRESHOLD_PATH, MODEL_META_PATH, EMBEDDER_META_PATH]:
-    if not p.exists():
-        raise FileNotFoundError(
-            f"Missing required file: {p}\n"
-            "Run: python scripts/run_step2.py  to train the model first."
-        )
+_clf           = None
+_threshold     = None
+_sbert         = None
+_models_loaded = False
 
-clf            = joblib.load(MODEL_PATH)
-threshold      = float(THRESHOLD_PATH.read_text().strip())
-embedder_meta  = json.loads(EMBEDDER_META_PATH.read_text())
-sbert          = SentenceTransformer(embedder_meta["model"])
+def _ensure_models_loaded():
+    global _clf, _threshold, _sbert, _models_loaded
+    if _models_loaded:
+        return
+
+    for p in [MODEL_PATH, THRESHOLD_PATH, MODEL_META_PATH, EMBEDDER_META_PATH]:
+        if not p.exists():
+            raise FileNotFoundError(
+                f"Missing required file: {p}\n"
+                "Run: python scripts/run_step2.py  to train the model first."
+            )
+
+    _clf           = joblib.load(MODEL_PATH)
+    _threshold     = float(THRESHOLD_PATH.read_text().strip())
+    embedder_meta  = json.loads(EMBEDDER_META_PATH.read_text())
+    _sbert         = SentenceTransformer(embedder_meta["model"])
+    _models_loaded = True
 
 # ── Regex rule bank ──────────────────────────────────────────────────────────
 RULES = [
@@ -161,7 +172,7 @@ def is_suspicious(text: str) -> dict:
             "skip_sandbox":       True,       # Force direct-to-repair
             "score":              0.98,
             "model_prob":         0.98,
-            "threshold":          float(threshold),
+            "threshold":          _threshold if _threshold else 0.5,
             "rule_hits":          harmful["hits"],
             "reason":             "harmful_intent:" + ",".join(harmful["hits"]),
             "legitimate_context": False,
@@ -176,18 +187,19 @@ def is_suspicious(text: str) -> dict:
             "skip_sandbox":       True,       # High confidence, bypass sandbox directly to repair
             "score":              0.95,
             "model_prob":         0.0,        # Skipped SBERT
-            "threshold":          float(threshold),
+            "threshold":          _threshold if _threshold else 0.5,
             "rule_hits":          rule_hits,
             "reason":             "strong_rule_fast_reject",
             "legitimate_context": False,
         }
 
+    _ensure_models_loaded()
     # Only encode and run the ML model if we need to
-    emb  = sbert.encode([text], normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False)
-    prob = float(clf.predict_proba(emb)[0, 1])
+    emb  = _sbert.encode([text], normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False)
+    prob = float(_clf.predict_proba(emb)[0, 1])
 
     # Raise threshold slightly for legitimate research context (unless strong rule hit)
-    threshold_adj = threshold * 1.2 if (has_legit and not strong_rule) else threshold
+    threshold_adj = _threshold * 1.2 if (has_legit and not strong_rule) else _threshold
 
     final_prob = prob
     reason     = "model"
@@ -205,7 +217,7 @@ def is_suspicious(text: str) -> dict:
     if has_legit and not strong_rule:
         reason = f"{reason}_legitimate_context"
 
-    suspicious = strong_rule or prob >= threshold_adj
+    suspicious = strong_rule or final_prob >= threshold_adj
     
     # OPTIMIZATION: Confidence Gating. If the final probability is extremely high,
     # we don't need to waste 450ms hitting the Sandbox API — we can send it
