@@ -167,6 +167,12 @@ python -m pytest tests/ -v
 streamlit run app/demo.py
 ```
 
+### 8. Start the API Firewall (FastAPI)
+```bash
+python -m uvicorn app.api:app --host 0.0.0.0 --port 8000
+```
+Then visit [http://localhost:8000/docs](http://localhost:8000/docs) to access the interactive Swagger UI and test the API.
+
 ## Tech Stack
 
 | Component | Technology |
@@ -209,8 +215,10 @@ streamlit run app/demo.py
 ### End-to-End Latency (live smoke test)
 | Path | Latency | Tokens |
 |---|---|---|
-| Clean input (Step 2 only) | ~25ms | 0 |
-| False alarm (Steps 2+3) | ~450ms | ~60 |
+| Clean input (Step 2 only) | ~15ms | 0 |
+| Repeated Attack (LRU Cache Hit) | ~60ms | 0 |
+| Extremely Obvious Attack (Bypasses Sandbox) | ~650ms | ~450 |
+| Edge-case False alarm (Steps 2+3) | ~450ms | ~60 |
 | Repaired attack (Steps 2+3+4+5) | ~2s | ~450 |
 
 ## Test Coverage
