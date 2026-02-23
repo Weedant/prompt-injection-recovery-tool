@@ -25,7 +25,7 @@ Our architecture routes prompts through multiple checkpoints to balance **speed*
 *(Testing against a diverse 275,000+ benchmark corpus combining MindGuard, Sinaw, and GeekyRakshit datasets)*
 
 ### Phase 1: Local Prefilter (Step 2)
-The baseline defense was evaluated locally against a random subset of 500 records from the massive benchmark corpus.
+The baseline defense was evaluated against the **entire 274,920 records** from the massive benchmark corpus.
 
 ```text
 Total Evaluated: 274,920
@@ -40,6 +40,10 @@ ROC-AUC: 0.9492
    macro avg     0.8788    0.8772    0.8760    274920
 weighted avg     0.8798    0.8761    0.8760    274920
 ```
+
+<img src="./docs/images/model_performance.png" alt="Model Performance Graph" width="700"/>
+
+
 
 ### Phase 2: Sandbox Analysis (Step 3)
 Evaluated against a perfectly balanced 100-sample set (50 malicious, 50 benign) using the Groq API. The Sandbox catches advanced attacks that the local prefilter might have been uncertain about.
@@ -63,4 +67,4 @@ weighted avg       0.50      0.50      0.35       100
 *   **Latency vs. Security:** Clean inputs clear the prefilter in ~25ms. Highly complex attacks are evaluated in the sandbox, taking longer (~450ms) but ensuring safety.
 *   **Defense in Depth:** The prefilter blocks 90%+ of generic attacks instantly, saving massive API costs and preventing rate limits.
 
-*(See `docs/images/model_performance.png` and `docs/images/class_distributions.png` for visual breakdowns of the baseline metrics).*
+<img src="./docs/images/dataset_scale.png" alt="Dataset Scale Graph" width="600"/>
