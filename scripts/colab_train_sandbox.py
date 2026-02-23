@@ -7,12 +7,12 @@
 # NOTE: Uncomment the "!pip" and "drive.mount" lines below when running in Google Colab.
 
 # --- INSTALL DEPENDENCIES ---
-#!pip install -q sentence-transformers pandas scikit-learn joblib
+!pip install -q sentence-transformers pandas scikit-learn joblib
 
 # --- MOUNT GOOGLE DRIVE ---
 # Preparing your CSV by uploading it to your Google Drive root or a folder
 from google.colab import drive
-#drive.mount('/content/drive')
+drive.mount('/content/drive')
 
 import pandas as pd
 import numpy as np
@@ -45,8 +45,10 @@ labels = df["label"].astype(int).tolist()
 log(f"Loaded {len(prompts):,} rows.")
 
 # --- EMBEDDING ---
-log("Loading SBERT on GPU...")
-model = SentenceTransformer(SBERT_MODEL, device="cuda")
+import torch
+device = "cuda" if torch.cuda.is_available() else "cpu"
+log(f"Loading SBERT on {device.upper()}...")
+model = SentenceTransformer(SBERT_MODEL, device=device)
 
 # Combine prompt+response for context
 CHAR_LIMIT = 400
