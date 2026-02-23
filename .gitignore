@@ -29,8 +29,10 @@ models/harmful_intent/
 
 # ── Large Data (Excluded to prevent repo bloat) ────────────────────────
 DATASETS/
-data/raw/
-data/processed/sandbox_chunks/
+Test Data/
+Training Data/
+data/
+
 *.npy
 *.joblib
 *.txt
