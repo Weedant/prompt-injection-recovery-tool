@@ -158,6 +158,7 @@ def is_suspicious(text: str) -> dict:
     if harmful["compromised"]:
         return {
             "suspicious":         True,
+            "skip_sandbox":       True,       # Force direct-to-repair
             "score":              0.98,
             "model_prob":         0.98,
             "threshold":          float(threshold),
@@ -166,7 +167,23 @@ def is_suspicious(text: str) -> dict:
             "legitimate_context": False,
         }
 
-    emb  = sbert.encode([text])
+    # OPTIMIZATION: Regex short-circuit BEFORE SBERT.
+    # If a strong rule fires and there is no legitimate context, we already know
+    # it's an injection. We can skip the SBERT embedding entirely to save CPU!
+    if strong_rule and not has_legit:
+        return {
+            "suspicious":         True,
+            "skip_sandbox":       True,       # High confidence, bypass sandbox directly to repair
+            "score":              0.95,
+            "model_prob":         0.0,        # Skipped SBERT
+            "threshold":          float(threshold),
+            "rule_hits":          rule_hits,
+            "reason":             "strong_rule_fast_reject",
+            "legitimate_context": False,
+        }
+
+    # Only encode and run the ML model if we need to
+    emb  = sbert.encode([text], normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False)
     prob = float(clf.predict_proba(emb)[0, 1])
 
     # Raise threshold slightly for legitimate research context (unless strong rule hit)
@@ -189,9 +206,15 @@ def is_suspicious(text: str) -> dict:
         reason = f"{reason}_legitimate_context"
 
     suspicious = strong_rule or prob >= threshold_adj
+    
+    # OPTIMIZATION: Confidence Gating. If the final probability is extremely high,
+    # we don't need to waste 450ms hitting the Sandbox API — we can send it
+    # straight to the Repair engine.
+    skip_sandbox = suspicious and final_prob > 0.85
 
     return {
         "suspicious":         bool(suspicious),
+        "skip_sandbox":       bool(skip_sandbox),
         "score":              float(final_prob),
         "model_prob":         prob,
         "threshold":          float(threshold_adj),

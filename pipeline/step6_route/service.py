@@ -83,35 +83,48 @@ def route(
         f"Routing to sandbox."
     )
 
-    # ── Stage 3: Sandbox ──────────────────────────────────────────────────────
-    t3 = time.perf_counter()
-    sandbox = SandboxLLM(api_key=api_key)
-    analyzer = BehaviorAnalyzer()
-
-    sandbox_result = sandbox.query(user_input)
-    llm_output = sandbox_result.get("output", "")
-    tokens_s3 = sandbox_result.get("tokens", {}).get("total", 0)
-    total_tokens += tokens_s3
-
-    if "error" in sandbox_result:
-        # Sandbox error → fail-safe reject
-        stages["step3_sandbox"] = {**sandbox_result, "latency_ms": _ms(t3)}
-        logger.error(f"[Route] Sandbox error: {sandbox_result['error']} — fail-safe reject.")
-        return _build_result(
-            final_route  = "reject",
-            reason       = "sandbox_error",
-            prompt_used  = None,
-            total_tokens = total_tokens,
-            t_start      = t_start,
-            stages       = stages,
-        )
-
-    behavior_result = analyzer.analyze(user_input, llm_output)
-    stages["step3_sandbox"] = {
-        "sandbox":  sandbox_result,
-        "behavior": behavior_result,
-        "latency_ms": _ms(t3),
-    }
+    # --- OPTIMIZATION: Confidence Gating ---
+    # If the prefilter gave a score > 0.85 or triggered a strong rule/intent,
+    # skip the sandbox entirely to save time & money, routing directly to Repair.
+    if prefilter_result.get("skip_sandbox", False):
+        logger.info(f"[Route] Prefilter confidence extremely high ({prefilter_result['score']:.3f}). Bypassing sandbox -> Repair.")
+        behavior_result = {
+            "compromised": True,
+            "overall_severity": "high",
+            "hits": prefilter_result.get("rule_hits", []),
+            "detected_by": ["Prefilter_High_Confidence_Bypass"]
+        }
+        stages["step3_sandbox"] = {"status": "skipped_due_to_high_confidence", "latency_ms": 0}
+    else:
+        # ── Stage 3: Sandbox ──────────────────────────────────────────────────────
+        t3 = time.perf_counter()
+        sandbox = SandboxLLM(api_key=api_key)
+        analyzer = BehaviorAnalyzer()
+    
+        sandbox_result = sandbox.query(user_input)
+        llm_output = sandbox_result.get("output", "")
+        tokens_s3 = sandbox_result.get("tokens", {}).get("total", 0)
+        total_tokens += tokens_s3
+    
+        if "error" in sandbox_result:
+            # Sandbox error → fail-safe reject
+            stages["step3_sandbox"] = {**sandbox_result, "latency_ms": _ms(t3)}
+            logger.error(f"[Route] Sandbox error: {sandbox_result['error']} — fail-safe reject.")
+            return _build_result(
+                final_route  = "reject",
+                reason       = "sandbox_error",
+                prompt_used  = None,
+                total_tokens = total_tokens,
+                t_start      = t_start,
+                stages       = stages,
+            )
+    
+        behavior_result = analyzer.analyze(user_input, llm_output)
+        stages["step3_sandbox"] = {
+            "sandbox":  sandbox_result,
+            "behavior": behavior_result,
+            "latency_ms": _ms(t3),
+        }
 
     if not behavior_result["compromised"]:
         # Prefilter false positive — sandbox cleared it
