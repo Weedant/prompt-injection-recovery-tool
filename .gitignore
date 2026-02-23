@@ -1,0 +1,57 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+
+# ── Environment / secrets ──────────────────────────────────────────────────────
+.env
+
+# ── Generated model artifacts (large binary files) ────────────────────────────
+models/step2/*.joblib
+models/step2/threshold.txt
+models/step3/
+models/harmful_intent/
+
+# ── Large Data (Excluded to prevent repo bloat) ────────────────────────
+DATASETS/
+data/raw/
+data/processed/sandbox_chunks/
+*.npy
+*.joblib
+*.txt
+!models/**/*.txt
+!models/**/*.joblib
+!requirements.txt
+evaluation_report.txt
+final_evaluation_report.txt
+data/renellm/
+renellm_jailbreak.json
+
+# ── IDE / OS ───────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── Pytest / coverage ─────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Notebooks (optional — remove if you want to track them) ───────────────────
+notebooks/
