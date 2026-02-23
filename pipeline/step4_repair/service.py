@@ -24,21 +24,53 @@ Flow:
 """
 import logging
 from typing import Dict, Any, Optional
+from collections import OrderedDict
 
 from pipeline.step4_repair.rule_stripper import strip_injections
 from pipeline.step4_repair.llm_rewriter import LLMRewriter
-from functools import lru_cache
-import json
 
 logger = logging.getLogger("recovery.repair")
 
-@lru_cache(maxsize=2000)
-def _cached_repair(original_prompt: str, behavior_str: str, api_key: Optional[str] = None) -> str:
-    """Inner cached repair function. Strings are hashable."""
-    behavior = json.loads(behavior_str) if behavior_str else None
-    
+# === REPAIR CACHE (global LRU) ===
+# Repeated jailbreaks (DAN, "ignore previous", etc.) now hit in ~60-80 ms forever
+REPAIR_CACHE: OrderedDict[str, Dict[str, Any]] = OrderedDict()
+MAX_CACHE_SIZE = 2000
+
+def repair(
+    original_prompt: str,
+    behavior: Optional[Dict[str, Any]] = None,
+    api_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Repair a flagged prompt.
+
+    Args:
+        original_prompt: The raw suspicious prompt from Step 3.
+        behavior: The behavior analysis dict from Step 3 (used to tailor repair).
+        api_key: Optional Groq API key override.
+
+    Returns:
+        {
+            "original_prompt":      str,
+            "repaired_prompt":      str | None,
+            "has_legitimate_intent": bool,
+            "changes_made":         List[str],
+            "repair_confidence":    float,   # 0.0–1.0
+            "rule_strip":           dict,    # raw rule stripper output
+            "llm_rewrite":          dict,    # raw LLM rewriter output
+            "route_hint":           str,     # "verify" | "reject"
+            "tokens_used":          int,
+        }
+    """
+    # === CACHE CHECK — first thing after docstring ===
+    cache_key = original_prompt  # exact input string = perfect key
+    if cache_key in REPAIR_CACHE:
+        REPAIR_CACHE.move_to_end(cache_key)  # LRU refresh
+        logger.info(f"🚀 Repair cache HIT — prompt_len={len(original_prompt)}")
+        return REPAIR_CACHE[cache_key]
+
     severity = behavior.get("overall_severity", "low") if behavior else "low"
-    logger.info(f"Repair started (cache miss). severity={severity}, prompt_len={len(original_prompt)}")
+    logger.info(f"Repair started. severity={severity}, prompt_len={len(original_prompt)}")
 
     # ── Phase 1: Rule-based stripping ────────────────────────────────────────
     strip_result = strip_injections(original_prompt)
@@ -80,7 +112,7 @@ def _cached_repair(original_prompt: str, behavior_str: str, api_key: Optional[st
 
     logger.info(f"Repair complete: has_intent={has_intent}, confidence={confidence:.2f}, route_hint={route_hint}, tokens={tokens_used}")
 
-    return json.dumps({
+    result = {
         "original_prompt":       original_prompt,
         "repaired_prompt":       final_prompt,
         "has_legitimate_intent": has_intent,
@@ -90,34 +122,12 @@ def _cached_repair(original_prompt: str, behavior_str: str, api_key: Optional[st
         "llm_rewrite":           llm_result,
         "route_hint":            route_hint,
         "tokens_used":           tokens_used,
-    })
+    }
 
+    # === CACHE STORE — right before returning ===
+    REPAIR_CACHE[cache_key] = result
+    REPAIR_CACHE.move_to_end(cache_key)
+    if len(REPAIR_CACHE) > MAX_CACHE_SIZE:
+        REPAIR_CACHE.popitem(last=False)  # remove oldest
 
-def repair(
-    original_prompt: str,
-    behavior: Optional[Dict[str, Any]] = None,
-    api_key: Optional[str] = None,
-) -> Dict[str, Any]:
-    """
-    Repair a flagged prompt.
-
-    Args:
-        original_prompt: The raw suspicious prompt from Step 3.
-        behavior: The behavior analysis dict from Step 3 (used to tailor repair).
-        api_key: Optional Groq API key override.
-
-    Returns:
-        {
-            "original_prompt":      str,
-            "repaired_prompt":      str | None,
-            "has_legitimate_intent": bool,
-            "changes_made":         List[str],
-            "repair_confidence":    float,   # 0.0–1.0
-            "rule_strip":           dict,    # raw rule stripper output
-            "llm_rewrite":          dict,    # raw LLM rewriter output
-            "route_hint":           str,     # "verify" | "reject"
-            "tokens_used":          int,
-        }
-    """
-    behavior_str = json.dumps(behavior, sort_keys=True) if behavior else ""
-    return json.loads(_cached_repair(original_prompt, behavior_str, api_key))
+    return result
