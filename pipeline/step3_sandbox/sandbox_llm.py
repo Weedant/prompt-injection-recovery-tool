@@ -93,7 +93,7 @@ class SandboxLLM:
             return {"error": "Rate Limit Exceeded", "output": ""}
         except APIError as e:
             logger.error(f"Groq API Error: {e}")
-            return {"error": str(e), "output": ""}
+            return {"error": "Groq API error", "output": ""}
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
-            return {"error": str(e), "output": ""}
+            return {"error": "Unexpected internal sandbox error", "output": ""}

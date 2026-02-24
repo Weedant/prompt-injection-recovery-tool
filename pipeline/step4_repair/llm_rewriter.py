@@ -98,8 +98,10 @@ class LLMRewriter:
         except APIError as e:
             logger.error(f"Groq API error during rewrite: {e}")
             return {"rewritten": None, "has_legitimate_intent": False,
-                    "model": self.model, "tokens": 0, "error": str(e)}
+                    "model": self.model, "tokens": 0,
+                    "error": "Groq API error during rewrite"}
         except Exception as e:
             logger.error(f"Unexpected rewriter error: {e}")
             return {"rewritten": None, "has_legitimate_intent": False,
-                    "model": self.model, "tokens": 0, "error": str(e)}
+                    "model": self.model, "tokens": 0,
+                    "error": "Unexpected internal rewriter error"}
