@@ -19,6 +19,16 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# ── Middleware ───────────────────────────────────────────────────────────────
+# IMPORTANT: Middleware must be registered before route handlers.
+@app.middleware("http")
+async def add_latency_header(request: Request, call_next):
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    process_time_ms = (time.perf_counter() - start_time) * 1000
+    response.headers["X-Recovery-Latency-Ms"] = f"{process_time_ms:.2f}"
+    return response
+
 # CORS - essential for research/demo use
 app.add_middleware(
     CORSMiddleware,
@@ -100,16 +110,6 @@ async def check_prompt(
             status_code=500,
             detail=f"Pipeline error: {str(e)[:200]}"
         ) from e
-
-
-# Global middleware: adds X-Recovery-Latency-Ms header on every response
-@app.middleware("http")
-async def add_latency_header(request: Request, call_next):
-    start = time.perf_counter()
-    response = await call_next(request)
-    process_time = (time.perf_counter() - start) * 1000
-    response.headers["X-Recovery-Latency-Ms"] = f"{process_time:.2f}"
-    return response
 
 
 if __name__ == "__main__":
