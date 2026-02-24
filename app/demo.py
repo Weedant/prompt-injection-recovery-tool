@@ -317,57 +317,83 @@ if run_btn and user_input.strip():
         st.stop()
 
     # ── STEP 3: Sandbox ───────────────────────────────────────────────────────
-    stages_html.append(stage_card("🔬", "Step 3 — Sandbox", "running",
-        "<small style='color:#8b949e;'>Sending to Groq sandbox LLM + behavior analysis...</small>"))
-    render_timeline(stages_html, timeline_ph)
+    skip_sandbox = prefilter.get("skip_sandbox", False)
+    
+    if skip_sandbox:
+        stages_html.append(stage_card("⚡", "Step 3 — Sandbox", "skip",
+            "<small style='color:#e3b341;'>Bypassed! High-confidence attack routed directly to repair.</small>"))
+        render_timeline(stages_html, timeline_ph)
 
-    t3           = time.perf_counter()
-    sandbox_llm  = SandboxLLM()
-    sandbox_res  = sandbox_llm.query(user_input)
-    analyzer     = BehaviorAnalyzer()
-    llm_output   = sandbox_res.get("output", "")
-    behavior     = analyzer.analyze(user_input, llm_output)
-    latency_3    = round((time.perf_counter() - t3) * 1000)
-    compromised  = behavior["compromised"]
-    severity     = behavior["overall_severity"]
-    detections   = behavior["detections"]
-    tokens_3     = sandbox_res.get("tokens", {}).get("total", 0)
-    sev_color    = {"critical":"red","high":"red","medium":"yellow","low":"green"}.get(severity,"gray")
+        behavior = {
+            "compromised": True,
+            "overall_severity": "high",
+            "hits": rules_hit,
+            "detected_by": ["Prefilter_High_Confidence_Bypass"],
+            "detections": {}
+        }
+        latency_3 = 0
+        compromised = True
+        severity = "high"
+        tokens_3 = 0
+        triggered_dets = {}
 
-    # Only show detectors that actually fired
-    triggered_dets = {k: v for k, v in detections.items() if v["compromised"]}
+        with detail_ph.container():
+            st.markdown('<div class="section-header">Sandbox LLM Response</div>', unsafe_allow_html=True)
+            st.markdown(f'{chip("⚡ CONFIDENCE GATING", "yellow")} {chip("0 tokens", "blue")} {chip("0ms latency", "gray")}', unsafe_allow_html=True)
+            st.markdown('<div class="response-box" style="color:#8b949e;">Sandbox API completely bypassed to save latency. Attack confidently forwarded directly to Step 4.</div>', unsafe_allow_html=True)
 
-    body3 = (
-        f"<div style='margin-bottom:8px;'>"
-        f"{chip(f'severity: {severity}', sev_color)}"
-        f"{chip('COMPROMISED' if compromised else 'CLEAR', 'red' if compromised else 'green')}"
-        f"{chip(f'{tokens_3} tokens', 'blue')}"
-        f"{chip(f'{latency_3}ms', 'gray')}"
-        f"</div>"
-    )
-    if triggered_dets:
-        for det_name, det_res in triggered_dets.items():
-            hits_str = ", ".join(det_res.get("hits", [])[:2])
-            body3 += (
-                f"<div style='padding:5px 0;border-bottom:1px solid #21262d;font-size:0.88rem;'>"
-                f"🔴 <strong>{det_name}</strong> &nbsp;"
-                f"{chip('TRIGGERED','red')}"
-                f"{chip(hits_str,'yellow') if hits_str else ''}"
-                f"</div>"
-            )
+    else:
+        stages_html.append(stage_card("🔬", "Step 3 — Sandbox", "running",
+            "<small style='color:#8b949e;'>Sending to Groq sandbox LLM + behavior analysis...</small>"))
+        render_timeline(stages_html, timeline_ph)
 
-    stages_html[-1] = stage_card("🔬", "Step 3 — Sandbox",
-                                  "fail" if compromised else "pass", body3)
-    render_timeline(stages_html, timeline_ph)
+        t3           = time.perf_counter()
+        sandbox_llm  = SandboxLLM()
+        sandbox_res  = sandbox_llm.query(user_input)
+        analyzer     = BehaviorAnalyzer()
+        llm_output   = sandbox_res.get("output", "")
+        behavior     = analyzer.analyze(user_input, llm_output)
+        latency_3    = round((time.perf_counter() - t3) * 1000)
+        compromised  = behavior["compromised"]
+        severity     = behavior["overall_severity"]
+        detections   = behavior["detections"]
+        tokens_3     = sandbox_res.get("tokens", {}).get("total", 0)
+        sev_color    = {"critical":"red","high":"red","medium":"yellow","low":"green"}.get(severity,"gray")
 
-    # Detail: sandbox output + detectors
-    with detail_ph.container():
-        st.markdown('<div class="section-header">Sandbox LLM Response</div>', unsafe_allow_html=True)
-        st.markdown(f'{chip("llama-3.3-70b-versatile","gray")} {chip(f"{tokens_3} tokens","blue")}', unsafe_allow_html=True)
-        st.markdown(f'<div class="response-box">{llm_output}</div>', unsafe_allow_html=True)
+        # Only show detectors that actually fired
+        triggered_dets = {k: v for k, v in detections.items() if v["compromised"]}
+
+        body3 = (
+            f"<div style='margin-bottom:8px;'>"
+            f"{chip(f'severity: {severity}', sev_color)}"
+            f"{chip('COMPROMISED' if compromised else 'CLEAR', 'red' if compromised else 'green')}"
+            f"{chip(f'{tokens_3} tokens', 'blue')}"
+            f"{chip(f'{latency_3}ms', 'gray')}"
+            f"</div>"
+        )
         if triggered_dets:
-            st.markdown('<div class="section-header">Triggered Detectors</div>', unsafe_allow_html=True)
-            render_detectors(triggered_dets)
+            for det_name, det_res in triggered_dets.items():
+                hits_str = ", ".join(det_res.get("hits", [])[:2])
+                body3 += (
+                    f"<div style='padding:5px 0;border-bottom:1px solid #21262d;font-size:0.88rem;'>"
+                    f"🔴 <strong>{det_name}</strong> &nbsp;"
+                    f"{chip('TRIGGERED','red')}"
+                    f"{chip(hits_str,'yellow') if hits_str else ''}"
+                    f"</div>"
+                )
+
+        stages_html[-1] = stage_card("🔬", "Step 3 — Sandbox",
+                                      "fail" if compromised else "pass", body3)
+        render_timeline(stages_html, timeline_ph)
+
+        # Detail: sandbox output + detectors
+        with detail_ph.container():
+            st.markdown('<div class="section-header">Sandbox LLM Response</div>', unsafe_allow_html=True)
+            st.markdown(f'{chip("llama-3.3-70b-versatile","gray")} {chip(f"{tokens_3} tokens","blue")}', unsafe_allow_html=True)
+            st.markdown(f'<div class="response-box">{llm_output}</div>', unsafe_allow_html=True)
+            if triggered_dets:
+                st.markdown('<div class="section-header">Triggered Detectors</div>', unsafe_allow_html=True)
+                render_detectors(triggered_dets)
 
     # ── FALSE ALARM PATH ──────────────────────────────────────────────────────
     if not compromised:
